@@ -13,7 +13,7 @@ import requests
 from datetime import datetime
 
 # Load API key
-BLS_API_KEY = os.getenv("BLS_API_KEY", "YOUR_DEFAULT_API_KEY")  # Replace with your API key
+BLS_API_KEY = os.getenv("BLS_API_KEY", "3a3bc740675c42529050683a2c4fddee")  # Replace with your API key
 API_URL = "https://api.bls.gov/publicAPI/v2/timeseries/data/"
 
 # Series information
