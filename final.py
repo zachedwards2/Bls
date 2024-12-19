@@ -7,17 +7,19 @@ Original file is located at
     https://colab.research.google.com/drive/1FOM_nqZVFU7PdRjf0b1_2bPGTbXaJQ1b
 """
 
+# Install required libraries
+
 import os
 import requests
 import pandas as pd
-from dotenv import load_dotenv
 import streamlit as st
-import matplotlib.pyplot as plt
 
-# Load API key from .env file
-load_dotenv()
-BLS_API_KEY = os.getenv("BLS_API_KEY")
+# Load API key from environment variables or use default
+BLS_API_KEY = os.getenv("BLS_API_KEY", "3a3bc740675c42529050683a2c4fddee")  # Replace with your own key if needed
 
+# Check if the API key is loaded properly
+if not BLS_API_KEY:
+    raise ValueError("API key not found. Please add your BLS_API_KEY in the environment variables or hardcode it.")
 
 # BLS API endpoint
 API_URL = "https://api.bls.gov/publicAPI/v2/timeseries/data/"
@@ -58,25 +60,37 @@ def process_bls_data(raw_data):
         pd.DataFrame: A DataFrame containing 'date' and 'value' columns.
     """
     try:
-        # Extract the data series
-        series = raw_data['Results']['series'][0]['data']
+        series = raw_data.get('Results', {}).get('series', [])
+        if not series:
+            raise Exception("No series data found in response.")
 
-        # Convert the series to a DataFrame
-        df = pd.DataFrame(series)
+        data = series[0].get('data', [])
+        if not data:
+            raise Exception("No data found in series.")
 
-        # Format the 'date' column
+        df = pd.DataFrame(data)
+
+        # Ensure 'year' and 'period' columns exist
+        if 'year' not in df or 'period' not in df:
+            raise Exception(f"Expected columns 'year' and 'period' not found in data. Raw data: {raw_data}")
+
+        # Combine year and period (e.g., 'M01', 'M02') to create a proper datetime column
         df['date'] = pd.to_datetime(df['year'] + '-' + df['period'].str[1:], errors='coerce')
 
-        # Drop invalid dates and convert 'value' to numeric
-        df = df.dropna(subset=['date']).sort_values(by='date')
+        # Drop rows where date is NaT (Not a Time) after conversion
+        df = df.dropna(subset=['date'])
+
+        # Sort by date and reset index
+        df = df.sort_values(by='date').reset_index(drop=True)
+
+        # Convert 'value' column to numeric (coerce errors)
         df['value'] = pd.to_numeric(df['value'], errors='coerce')
 
-        # Return only relevant columns
         return df[['date', 'value']]
     except Exception as e:
         raise Exception(f"Error processing data: {e}")
 
-# App title
+# Streamlit app
 st.title("US Labor Statistics Dashboard")
 
 # Sidebar inputs
@@ -86,28 +100,44 @@ end_year = st.sidebar.number_input("End Year", min_value=2000, max_value=2024, v
 
 # Series IDs and descriptions
 series_info = {
-    "CES0000000001": "Total Non-Farm Payrolls",
-    "LNS14000000": "Unemployment Rate"
+    "CES0000000001": {
+        "name": "Total Non-Farm Workers",
+        "description": "The total number of non-farm workers in the United States."
+    },
+    "LNS14000000": {
+        "name": "Unemployment Rate",
+        "description": "The percentage of unemployed persons in the labor force."
+    },
+    "PRS85006112": {
+        "name": "Nonfarm Business Unit Labor Costs",
+        "description": "The costs associated with labor per unit of output in nonfarm businesses."
+    },
+    "CES0500000003": {
+        "name": "Total Private Average Hourly Earnings",
+        "description": "The average hourly earnings of private employees, seasonally adjusted."
+    }
 }
 
 # Main dashboard display
-for series_id, description in series_info.items():
-    st.write(f"### {description}")
+for series_id, series_data in series_info.items():
+    st.write(f"### {series_data['name']}")
+    st.write(f"**Description:** {series_data['description']}")
+
     try:
         # Fetch and process data
         raw_data = fetch_bls_data(series_id, start_year, end_year)
         df = process_bls_data(raw_data)
 
+        # Format dates for display
+        df['formatted_date'] = df['date'].dt.strftime('%m/%Y')
+
+        # Ensure sorting of the original dates for the chart
+        df = df.sort_values(by='date')
+
         # Display data table
-        st.dataframe(df)
+        st.dataframe(df[['formatted_date', 'value']].rename(columns={"formatted_date": "Date"}))
 
         # Display chart
-        plt.figure(figsize=(10, 5))
-        plt.plot(df['date'], df['value'], marker='o', linestyle='-')
-        plt.title(description)
-        plt.xlabel("Date")
-        plt.ylabel("Value")
-        plt.grid()
-        st.pyplot(plt)
+        st.line_chart(data=df.set_index('date')['value'])  # Use 'date' as x-axis for proper chronological display
     except Exception as e:
-        st.error(f"Error fetching data for {description}: {e}")
+        st.error(f"Error fetching data for {series_data['name']}: {e}")
