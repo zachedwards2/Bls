@@ -1,3 +1,0 @@
-your-repo/
-  ├── .github/
-  │    └── workflows/
