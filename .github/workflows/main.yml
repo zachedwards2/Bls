@@ -1,0 +1,34 @@
+name: Monthly BLS Data Update
+
+on:
+  schedule:
+    - cron: '0 0 1 * *'  # Runs at midnight UTC on the 1st of every month
+
+jobs:
+  update_data:
+    runs-on: ubuntu-latest  # Use the latest Ubuntu environment for this job
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2  # Get the repository code
+
+      - name: Set up Python
+        uses: actions/setup-python@v2  # Set up Python 3.x
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          pip install pandas requests
+
+      - name: Run script to fetch and append new data
+        run: |
+          python fetch_and_append_bls_data.py  # Your Python script
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "Your GitHub Username"
+          git config --global user.email "Your Email"
+          git add bls_data.csv
+          git commit -m "Update BLS data"
+          git push
