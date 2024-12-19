@@ -6,7 +6,7 @@ import pandas as pd
 import streamlit as st
 
 # Load API key from environment variables or use default
-BLS_API_KEY = os.getenv("BLS_API_KEY", "3a3bc740675c42529050683a2c4fddee")  # Replace with your own key if needed
+BLS_API_KEY = os.getenv("BLS_API_KEY", "170c1d1d31944d589603a455deaca423")  # Replace with your own key if needed
 
 # Check if the API key is loaded properly
 if not BLS_API_KEY:
